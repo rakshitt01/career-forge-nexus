@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Award, ChevronRight, Briefcase, Coffee, User, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,18 +7,90 @@ import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import AnimatedContainer from '@/components/AnimatedContainer';
 import BottomNavigation from '@/components/BottomNavigation';
+import { useAuth } from '@/components/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
+
+interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  college_name: string;
+  graduation_year: number | null;
+  interests: string[] | null;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const username = "Sophia";
-  const profileCompletion = 65;
+  const { user, signOut } = useAuth();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profileCompletion, setProfileCompletion] = useState(65);
+  
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching profile:', error);
+          toast({
+            title: 'Error',
+            description: 'Could not load profile data',
+            variant: 'destructive',
+          });
+        } else if (data) {
+          setProfile(data);
+          
+          // Calculate profile completion
+          let completionScore = 0;
+          if (data.full_name) completionScore += 20;
+          if (data.email) completionScore += 20;
+          if (data.college_name) completionScore += 20;
+          if (data.graduation_year) completionScore += 20;
+          if (data.interests && data.interests.length > 0) completionScore += 20;
+          
+          setProfileCompletion(completionScore);
+        }
+      } catch (error) {
+        console.error('Profile fetch error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+    
+    // Subscribe to realtime updates for projects
+    const projectsChannel = supabase
+      .channel('public:projects')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'projects' 
+      }, (payload) => {
+        console.log('Projects update:', payload);
+        // You could update the UI here when new projects arrive
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(projectsChannel);
+    };
+  }, [user]);
   
   return (
     <div className="min-h-screen pb-16">
       <header className="sticky top-0 bg-white z-10 px-4 py-4 border-b">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-semibold">Hi, {username}! 👋</h1>
+            <h1 className="text-xl font-semibold">Hi, {profile?.full_name?.split(' ')[0] || 'there'}! 👋</h1>
             <p className="text-sm text-muted-foreground">Let's build your career today</p>
           </div>
           <div className="flex gap-3">
