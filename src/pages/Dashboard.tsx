@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Award, ChevronRight, Briefcase, Coffee, User, BarChart } from 'lucide-react';
@@ -10,15 +9,9 @@ import BottomNavigation from '@/components/BottomNavigation';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { Database } from '@/integrations/supabase/types';
 
-interface Profile {
-  id: string;
-  full_name: string;
-  email: string;
-  college_name: string;
-  graduation_year: number | null;
-  interests: string[] | null;
-}
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 const Dashboard = () => {
   const navigate = useNavigate();
