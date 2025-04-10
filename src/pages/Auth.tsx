@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Github, Linkedin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,9 +10,11 @@ import AnimatedContainer from '@/components/AnimatedContainer';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('signup');
   const [interests, setInterests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,14 @@ const Auth = () => {
   const [fullName, setFullName] = useState('');
   const [college, setCollege] = useState('');
   const [gradYear, setGradYear] = useState<string>('');
+
+  // Effect to redirect authenticated users
+  useEffect(() => {
+    if (user) {
+      console.log('User is already logged in, redirecting to dashboard');
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const interestOptions = [
     { id: 'freelancer', label: 'Freelancer' },
@@ -99,18 +108,28 @@ const Auth = () => {
           description: error.message,
           variant: "destructive"
         });
+        setLoading(false);
       } else {
         toast({
           title: "Account created!",
           description: "Your account has been successfully created."
         });
         
-        // Update profile data in profiles table
-        if (data.user) {
-          // The trigger we set up will create the profile automatically,
-          // but we could update it here if needed with additional data
-          navigate('/dashboard');
-        }
+        // Wait a moment before redirecting to ensure auth state is updated
+        setTimeout(() => {
+          if (data.session) {
+            console.log("Redirecting to dashboard after signup");
+            navigate('/dashboard');
+          } else {
+            // If email confirmation is required
+            toast({
+              title: "Email Confirmation Required",
+              description: "Please check your email to confirm your account before logging in."
+            });
+            setActiveTab('login');
+          }
+          setLoading(false);
+        }, 1500);
       }
     } catch (error) {
       console.error("Signup error:", error);
@@ -119,7 +138,6 @@ const Auth = () => {
         description: "An unexpected error occurred",
         variant: "destructive"
       });
-    } finally {
       setLoading(false);
     }
   };

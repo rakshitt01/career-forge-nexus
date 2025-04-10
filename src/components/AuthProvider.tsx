@@ -34,8 +34,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
         console.log('Auth state changed:', event, currentSession?.user?.email);
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          
+          if (window.location.pathname === '/auth' || window.location.pathname === '/') {
+            setTimeout(() => {
+              navigate('/dashboard');
+            }, 500);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          navigate('/auth');
+        }
+        
         setLoading(false);
       }
     );
@@ -53,11 +67,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: 'There was a problem with your session',
             variant: 'destructive',
           });
+          setLoading(false);
+          return;
         }
         
         console.log('Session found:', data.session?.user?.email || 'No session');
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+        }
       } catch (error) {
         console.error('Auth initialization error:', error);
       } finally {
@@ -72,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Cleanup auth subscription');
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   const signOut = async () => {
     try {
@@ -96,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut
   };
 
-  console.log('Auth state:', { loading, isAuthenticated: !!user });
+  console.log('Auth state:', { loading, isAuthenticated: !!user, user: user?.email });
   
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
