@@ -30,31 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('AuthProvider initialized');
     
-    // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        console.log('Auth state changed:', event, currentSession?.user?.email);
-        
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
-          
-          if (window.location.pathname === '/auth' || window.location.pathname === '/') {
-            setTimeout(() => {
-              navigate('/dashboard');
-            }, 500);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          navigate('/auth');
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Then check for existing session
+    // Get the initial session first to prevent flickering
     const initializeAuth = async () => {
       try {
         console.log('Checking for existing session');
@@ -76,15 +52,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSession(data.session);
           setUser(data.session.user);
         }
+        setLoading(false);
       } catch (error) {
         console.error('Auth initialization error:', error);
-      } finally {
-        // Always ensure loading is set to false, even if there's an error
         setLoading(false);
       }
     };
 
+    // Call the initialization function
     initializeAuth();
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        console.log('Auth state changed:', event, currentSession?.user?.email);
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          console.log('Setting user session after sign in', currentSession?.user?.email);
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          
+          // Handle redirects after successful login
+          if (window.location.pathname === '/auth' || window.location.pathname === '/') {
+            console.log('On auth page, redirecting to dashboard');
+            navigate('/dashboard');
+          }
+        } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out, clearing session');
+          setSession(null);
+          setUser(null);
+          navigate('/auth');
+        }
+      }
+    );
 
     return () => {
       console.log('Cleanup auth subscription');
@@ -96,6 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Signing out');
       await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
       navigate('/auth');
     } catch (error) {
       console.error('Sign out error:', error);

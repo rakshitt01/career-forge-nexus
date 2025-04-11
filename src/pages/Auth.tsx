@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Github, Linkedin } from 'lucide-react';
@@ -53,23 +54,25 @@ const Auth = () => {
     setLoading(true);
     
     try {
+      console.log('Attempting to login with:', email);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
       if (error) {
+        console.error('Login error:', error);
         toast({
           title: "Login Error",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log('Login successful, auth state change should trigger redirect');
         toast({
           title: "Welcome back!",
           description: "You've successfully logged in."
         });
-        navigate('/dashboard');
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -88,6 +91,7 @@ const Auth = () => {
     setLoading(true);
     
     try {
+      console.log('Attempting to signup with:', email);
       // Create the user account
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -103,33 +107,31 @@ const Auth = () => {
       });
       
       if (error) {
+        console.error('Signup error:', error);
         toast({
           title: "Signup Error",
           description: error.message,
           variant: "destructive"
         });
-        setLoading(false);
       } else {
+        console.log('Signup successful, session:', !!data.session);
         toast({
           title: "Account created!",
           description: "Your account has been successfully created."
         });
         
-        // Wait a moment before redirecting to ensure auth state is updated
-        setTimeout(() => {
-          if (data.session) {
-            console.log("Redirecting to dashboard after signup");
-            navigate('/dashboard');
-          } else {
-            // If email confirmation is required
-            toast({
-              title: "Email Confirmation Required",
-              description: "Please check your email to confirm your account before logging in."
-            });
-            setActiveTab('login');
-          }
-          setLoading(false);
-        }, 1500);
+        if (data.session) {
+          console.log("Session created, redirecting to dashboard");
+          // Manually navigate since the auth state change might not trigger immediately
+          setTimeout(() => navigate('/dashboard'), 1000);
+        } else {
+          console.log("No session created, may need email confirmation");
+          toast({
+            title: "Email Confirmation Required",
+            description: "Please check your email to confirm your account before logging in."
+          });
+          setActiveTab('login');
+        }
       }
     } catch (error) {
       console.error("Signup error:", error);
@@ -138,6 +140,7 @@ const Auth = () => {
         description: "An unexpected error occurred",
         variant: "destructive"
       });
+    } finally {
       setLoading(false);
     }
   };
