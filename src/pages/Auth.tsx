@@ -1,32 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Github, Linkedin } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Label } from '@/components/ui/label';
 import Logo from '@/components/Logo';
 import AnimatedContainer from '@/components/AnimatedContainer';
-import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/components/AuthProvider';
+import AuthTabs from '@/components/auth/AuthTabs';
+import AccountCreatedMessage from '@/components/auth/AccountCreatedMessage';
+import AuthInfoSidebar from '@/components/auth/AuthInfoSidebar';
 
 const Auth = () => {
   const navigate = useNavigate();
   const { user, refreshSession } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('signup');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
-  
-  // Form state
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [college, setCollege] = useState('');
-  const [gradYear, setGradYear] = useState<string>('');
 
   // Effect to redirect authenticated users
   useEffect(() => {
@@ -36,188 +22,15 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
-  const interestOptions = [
-    { id: 'freelancer', label: 'Freelancer' },
-    { id: 'job-seeker', label: 'Job Seeker' },
-    { id: 'entrepreneur', label: 'Entrepreneur' },
-  ];
-
-  const toggleInterest = (id: string) => {
-    if (interests.includes(id)) {
-      setInterests(interests.filter(item => item !== id));
-    } else {
-      setInterests([...interests, id]);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      console.log('Attempting to login with:', email);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) {
-        console.error('Login error:', error);
-        toast({
-          title: "Login Error",
-          description: error.message,
-          variant: "destructive"
-        });
-      } else {
-        console.log('Login successful, session:', data.session);
-        toast({
-          title: "Welcome back!",
-          description: "You've successfully logged in."
-        });
-        
-        // Force refresh the session
-        await refreshSession();
-        
-        // Manually navigate to dashboard
-        setTimeout(() => navigate('/dashboard'), 500);
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      toast({
-        title: "Login Failed",
-        description: "An unexpected error occurred",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      console.log('Attempting to signup with:', email);
-      // Create the user account
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            college_name: college,
-            graduation_year: gradYear ? parseInt(gradYear, 10) : null,
-            interests: interests
-          }
-        }
-      });
-      
-      if (error) {
-        console.error('Signup error:', error);
-        toast({
-          title: "Signup Error",
-          description: error.message,
-          variant: "destructive"
-        });
-      } else {
-        console.log('Signup successful, session:', !!data.session);
-        setAccountCreated(true);
-        toast({
-          title: "Account created!",
-          description: "Your account has been successfully created."
-        });
-        
-        if (data.session) {
-          console.log("Session created, redirecting to dashboard");
-          // Force refresh the session
-          await refreshSession();
-          // Then manually navigate to dashboard
-          setTimeout(() => navigate('/dashboard'), 500);
-        } else {
-          console.log("No session created, need email confirmation");
-          toast({
-            title: "Email Confirmation Required",
-            description: "Please check your email to confirm your account before logging in."
-          });
-          setActiveTab('login');
-        }
-      }
-    } catch (error) {
-      console.error("Signup error:", error);
-      toast({
-        title: "Signup Failed",
-        description: "An unexpected error occurred",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSocialLogin = async (provider: 'github' | 'linkedin') => {
-    try {
-      if (provider === 'github') {
-        await supabase.auth.signInWithOAuth({
-          provider: 'github',
-          options: {
-            redirectTo: `${window.location.origin}/dashboard`
-          }
-        });
-      } else if (provider === 'linkedin') {
-        toast({
-          title: "Coming Soon",
-          description: "LinkedIn login will be available soon!"
-        });
-      }
-    } catch (error) {
-      console.error(`${provider} login error:`, error);
-      toast({
-        title: "Login Failed",
-        description: `Could not login with ${provider}`,
-        variant: "destructive"
-      });
-    }
-  };
-
   // If account was created but user needs to confirm email
   if (accountCreated && !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background to-muted/50">
-        <AnimatedContainer animation="fade-in" className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <Logo size="lg" withText={true} />
-          </div>
-          <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-            <h2 className="text-2xl font-bold mb-4">Account Created!</h2>
-            <p className="mb-6 text-muted-foreground">
-              Please check your email to confirm your account before logging in.
-            </p>
-            <Button 
-              onClick={() => setActiveTab('login')} 
-              className="w-full gradient-secondary text-white"
-            >
-              Go to Login
-            </Button>
-          </div>
-        </AnimatedContainer>
-      </div>
-    );
+    return <AccountCreatedMessage setActiveTab={setActiveTab} />;
   }
 
   // Regular auth form
   return (
     <div className="min-h-screen grid md:grid-cols-2">
-      <div className="hidden md:block bg-gradient-to-br from-indigo to-pink">
-        <div className="h-full flex flex-col justify-center items-center text-white p-8">
-          <Logo size="lg" withText={true} />
-          <h2 className="text-3xl font-bold mt-8 mb-4">Start Your Journey</h2>
-          <p className="text-center max-w-md text-white/90">
-            Join thousands of students building their careers, 
-            getting real-world experience, and connecting with mentors.
-          </p>
-        </div>
-      </div>
+      <AuthInfoSidebar />
       
       <div className="flex items-center justify-center p-6">
         <AnimatedContainer animation="fade-in" className="w-full max-w-md">
@@ -225,183 +38,11 @@ const Auth = () => {
             <Logo size="md" withText={true} />
           </div>
           
-          <Tabs defaultValue="signup" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-2 mb-6">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Signup</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email-login">Email</Label>
-                  <Input 
-                    id="email-login" 
-                    type="email" 
-                    placeholder="your@email.com" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-login">Password</Label>
-                  <Input 
-                    id="password-login" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required 
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full gradient-secondary text-white"
-                  disabled={loading}
-                >
-                  {loading ? "Logging in..." : "Login"}
-                </Button>
-                
-                <div className="flex items-center gap-2 my-6">
-                  <Separator className="flex-1" />
-                  <span className="text-xs text-muted-foreground">OR CONTINUE WITH</span>
-                  <Separator className="flex-1" />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => handleSocialLogin('github')}
-                    disabled={loading}
-                  >
-                    <Github className="h-4 w-4 mr-2" />
-                    GitHub
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => handleSocialLogin('linkedin')}
-                    disabled={loading}
-                  >
-                    <Linkedin className="h-4 w-4 mr-2" />
-                    LinkedIn
-                  </Button>
-                </div>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullname">Full Name</Label>
-                  <Input 
-                    id="fullname" 
-                    placeholder="John Doe" 
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="your@email.com" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="college">College Name</Label>
-                  <Input 
-                    id="college" 
-                    placeholder="Search colleges..." 
-                    value={college}
-                    onChange={(e) => setCollege(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="graduation">Graduation Year</Label>
-                  <Input 
-                    id="graduation" 
-                    type="number" 
-                    placeholder="2025" 
-                    min="2020" 
-                    max="2030" 
-                    value={gradYear}
-                    onChange={(e) => setGradYear(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Interests (Select all that apply)</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {interestOptions.map((option) => (
-                      <Button 
-                        key={option.id}
-                        type="button"
-                        variant={interests.includes(option.id) ? "default" : "outline"} 
-                        onClick={() => toggleInterest(option.id)}
-                        className={interests.includes(option.id) ? "bg-indigo hover:bg-indigo-dark" : ""}
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full gradient-primary text-white"
-                  disabled={loading}
-                >
-                  {loading ? "Creating Account..." : "Sign Up & Start Exploring"}
-                </Button>
-                
-                <div className="flex items-center gap-2 my-6">
-                  <Separator className="flex-1" />
-                  <span className="text-xs text-muted-foreground">OR CONTINUE WITH</span>
-                  <Separator className="flex-1" />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => handleSocialLogin('github')}
-                    disabled={loading}
-                  >
-                    <Github className="h-4 w-4 mr-2" />
-                    GitHub
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => handleSocialLogin('linkedin')}
-                    disabled={loading}
-                  >
-                    <Linkedin className="h-4 w-4 mr-2" />
-                    LinkedIn
-                  </Button>
-                </div>
-              </form>
-            </TabsContent>
-          </Tabs>
+          <AuthTabs 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab}
+            setAccountCreated={setAccountCreated}
+          />
         </AnimatedContainer>
       </div>
     </div>
