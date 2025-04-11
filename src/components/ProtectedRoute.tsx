@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { Loader2 } from 'lucide-react';
 
@@ -9,7 +9,16 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshSession } = useAuth();
+  const location = useLocation();
+
+  // Force refresh session when accessing protected routes
+  useEffect(() => {
+    if (!user && !loading) {
+      console.log('No user found in protected route, refreshing session...');
+      refreshSession();
+    }
+  }, [user, loading, refreshSession]);
 
   if (loading) {
     return (
@@ -21,9 +30,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!user) {
+    console.log('User not authenticated, redirecting to auth from:', location.pathname);
     return <Navigate to="/auth" replace />;
   }
 
+  console.log('User authenticated, showing protected content');
   return <>{children}</>;
 };
 

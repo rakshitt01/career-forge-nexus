@@ -15,10 +15,11 @@ import { useAuth } from '@/components/AuthProvider';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('signup');
   const [interests, setInterests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
   
   // Form state
   const [email, setEmail] = useState('');
@@ -55,7 +56,7 @@ const Auth = () => {
     
     try {
       console.log('Attempting to login with:', email);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -68,11 +69,17 @@ const Auth = () => {
           variant: "destructive"
         });
       } else {
-        console.log('Login successful, auth state change should trigger redirect');
+        console.log('Login successful, session:', data.session);
         toast({
           title: "Welcome back!",
           description: "You've successfully logged in."
         });
+        
+        // Force refresh the session
+        await refreshSession();
+        
+        // Manually navigate to dashboard
+        setTimeout(() => navigate('/dashboard'), 500);
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -115,6 +122,7 @@ const Auth = () => {
         });
       } else {
         console.log('Signup successful, session:', !!data.session);
+        setAccountCreated(true);
         toast({
           title: "Account created!",
           description: "Your account has been successfully created."
@@ -122,10 +130,12 @@ const Auth = () => {
         
         if (data.session) {
           console.log("Session created, redirecting to dashboard");
-          // Manually navigate since the auth state change might not trigger immediately
-          setTimeout(() => navigate('/dashboard'), 1000);
+          // Force refresh the session
+          await refreshSession();
+          // Then manually navigate to dashboard
+          setTimeout(() => navigate('/dashboard'), 500);
         } else {
-          console.log("No session created, may need email confirmation");
+          console.log("No session created, need email confirmation");
           toast({
             title: "Email Confirmation Required",
             description: "Please check your email to confirm your account before logging in."
@@ -170,6 +180,32 @@ const Auth = () => {
     }
   };
 
+  // If account was created but user needs to confirm email
+  if (accountCreated && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background to-muted/50">
+        <AnimatedContainer animation="fade-in" className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <Logo size="lg" withText={true} />
+          </div>
+          <div className="bg-white p-8 rounded-xl shadow-lg text-center">
+            <h2 className="text-2xl font-bold mb-4">Account Created!</h2>
+            <p className="mb-6 text-muted-foreground">
+              Please check your email to confirm your account before logging in.
+            </p>
+            <Button 
+              onClick={() => setActiveTab('login')} 
+              className="w-full gradient-secondary text-white"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </AnimatedContainer>
+      </div>
+    );
+  }
+
+  // Regular auth form
   return (
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="hidden md:block bg-gradient-to-br from-indigo to-pink">

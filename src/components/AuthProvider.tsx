@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
@@ -10,13 +10,15 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   loading: true,
-  signOut: async () => {}
+  signOut: async () => {},
+  refreshSession: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -26,9 +28,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Function to manually refresh the session
+  const refreshSession = async () => {
+    console.log('Manually refreshing session...');
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Session refresh error:', error);
+        return;
+      }
+      
+      console.log('Session refreshed:', data.session?.user?.email || 'No session');
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+      }
+    } catch (error) {
+      console.error('Session refresh failed:', error);
+    }
+  };
 
   useEffect(() => {
     console.log('AuthProvider initialized');
+    console.log('Current path:', location.pathname);
     
     // Get the initial session first to prevent flickering
     const initializeAuth = async () => {
@@ -39,9 +63,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
           console.error('Session error:', error);
           toast({
-            title: 'Authentication Error',
-            description: 'There was a problem with your session',
-            variant: 'destructive',
+            title: "Authentication Error",
+            description: "There was a problem with your session",
+            variant: "destructive",
           });
           setLoading(false);
           return;
@@ -68,20 +92,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Auth state changed:', event, currentSession?.user?.email);
         
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          console.log('Setting user session after sign in', currentSession?.user?.email);
+          console.log('Setting user session after sign in/update', currentSession?.user?.email);
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
           
-          // Handle redirects after successful login
-          if (window.location.pathname === '/auth' || window.location.pathname === '/') {
-            console.log('On auth page, redirecting to dashboard');
+          // Handle redirects after successful login or token refresh
+          if (location.pathname === '/auth') {
+            console.log('On auth page with valid session, redirecting to dashboard');
             navigate('/dashboard');
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('User signed out, clearing session');
           setSession(null);
           setUser(null);
-          navigate('/auth');
+          if (location.pathname !== '/auth' && location.pathname !== '/') {
+            navigate('/auth');
+          }
         }
       }
     );
@@ -90,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Cleanup auth subscription');
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   const signOut = async () => {
     try {
@@ -102,9 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Sign out error:', error);
       toast({
-        title: 'Sign Out Error',
-        description: 'There was a problem signing out',
-        variant: 'destructive',
+        title: "Sign Out Error",
+        description: "There was a problem signing out",
+        variant: "destructive",
       });
     }
   };
@@ -113,10 +139,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     session,
     user,
     loading,
-    signOut
+    signOut,
+    refreshSession
   };
 
-  console.log('Auth state:', { loading, isAuthenticated: !!user, user: user?.email });
+  console.log('Auth state:', { loading, isAuthenticated: !!user, user: user?.email, path: location.pathname });
   
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
